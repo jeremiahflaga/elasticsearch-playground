@@ -13,3 +13,6 @@ Kibana 7.8.1 (https://artifacts.elastic.co/downloads/kibana/kibana-7.8.1-windows
 
 [Elastic Search .NET Core Unsuccessful Low Level Call on Post](https://stackoverflow.com/questions/52188217/elastic-search-net-core-unsuccessful-low-level-call-on-post/63370145)
 
+[Generating random locations nearby?](https://gis.stackexchange.com/a/68275)
+
+[Generate fake names](https://www.nuget.org/packages/Faker.Net/)

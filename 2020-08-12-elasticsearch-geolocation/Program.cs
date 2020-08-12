@@ -1,5 +1,6 @@
 ﻿using Nest;
 using System;
+using System.Collections.Generic;
 
 namespace ElasticSearchGeolocationExample
 {
@@ -10,10 +11,15 @@ namespace ElasticSearchGeolocationExample
         {
             var client = CreateClient();
             Index(client);
-            var searchResponse = Search(client);
 
-            Console.WriteLine($"People sorted by distance from ({baseGeolocation}):");
-            foreach (var item in searchResponse.Documents)
+            var searchAscendingResponse = SearchByDistance(client, SortOrder.Ascending);
+            Console.WriteLine($"People sorted by distance from ({baseGeolocation}) ASCENDING:");
+            foreach (var item in searchAscendingResponse.Documents)
+                Console.WriteLine($"{item.Id}: {item.FirstName} {item.LastName} ({item.Location})");
+            
+            var searchDescendingResponse = SearchByDistance(client, SortOrder.Descending);
+            Console.WriteLine($"\n\nPeople sorted by distance from ({baseGeolocation}) DESCENDING:");
+            foreach (var item in searchDescendingResponse.Documents)
                 Console.WriteLine($"{item.Id}: {item.FirstName} {item.LastName} ({item.Location})");
         }
 
@@ -21,16 +27,6 @@ namespace ElasticSearchGeolocationExample
         {
             var settings = new ConnectionSettings(new Uri("http://localhost:9200"))
                             .DefaultIndex("people");
-
-            // enable trace on your ConnectionSettings object: https://stackoverflow.com/a/28940234/1451757
-            settings.EnableDebugMode();
-            // log all requests made to Elastic: https://stackoverflow.com/a/50023531/1451757
-            settings.OnRequestCompleted(call =>
-            {
-                if (call.RequestBodyInBytes != null)
-                    System.Diagnostics.Debug.Write(System.Text.Encoding.UTF8.GetString(call.RequestBodyInBytes));
-            });
-
             var client = new ElasticClient(settings);
             var createIndexResponse = client.Indices.Create("people", c => c
                 .Map<Person>(p => p
@@ -39,54 +35,31 @@ namespace ElasticSearchGeolocationExample
                     .Properties(pr => pr.GeoPoint(g => g.Name(n => n.Location)))
                 )
             );
-
             return client;
         }
 
         private static void Index(ElasticClient client)
         {
-            var person = new Person
+            var people = new List<Person>();
+            for (int i = 0; i < 3000; i++)
             {
-                Id = 1,
-                FirstName = "Jboy",
-                LastName = "Flaga",
-                Location = GeoLocation.TryCreate(41.12, -71.34),
-            };
-            var indexResponse = client.IndexDocument(person);
-
-            var person2 = new Person
-            {
-                Id = 2,
-                FirstName = "Jboy 222",
-                LastName = "Flaga",
-                Location = GeoLocation.TryCreate(10.317985, 123.891128),
-            };
-            var indexResponse2 = client.IndexDocument(person2);
-
-            var person3 = new Person
-            {
-                Id = 3,
-                FirstName = "Jboy 333",
-                LastName = "Flaga",
-                Location = GeoLocation.TryCreate(7.051762, 125.590022),
-            };
-            var indexResponse3 = client.IndexDocument(person3);
+                people.Add(new Person
+                {
+                    Id = i,
+                    FirstName = Faker.Name.First(),
+                    LastName = Faker.Name.Last(),
+                    Location = GeolocationHelpers.GenerateRandomGeoLocation(baseGeolocation, 3000000),
+                });
+            }
+             var indexResponse = client.IndexMany(people);
         }
 
-        private static ISearchResponse<Person> Search(ElasticClient client)
+        private static ISearchResponse<Person> SearchByDistance(ElasticClient client, SortOrder sortOrder)
         {
             return client.Search<Person>(s => s
-                            .From(0)
-                            .Size(10)
-                            .Query(q => q
-                                 .Match(m => m
-                                    .Field(f => f.FirstName)
-                                    .Query("Jboy")
-                                 )
-                            )
                             .Sort(ss => ss.GeoDistance(g => g
                                   .Field(f => f.Location)
-                                  .Order(SortOrder.Ascending)
+                                  .Order(sortOrder)
                                   .DistanceType(GeoDistanceType.Plane)
                                   .Points(baseGeolocation)))
             );
