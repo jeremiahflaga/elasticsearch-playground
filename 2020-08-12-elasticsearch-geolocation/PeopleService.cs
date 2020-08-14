@@ -1,4 +1,5 @@
-﻿using Nest;
+﻿using Elasticsearch.Net;
+using Nest;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,20 +28,43 @@ namespace ElasticSearchGeolocationExample
             var indexResponse = client.IndexMany(people);
         }
 
+        // using scan & scroll: https://stackoverflow.com/a/27960442/1451757
+        // https://discuss.elastic.co/t/elasticsearch-search-query-to-retrieve-all-records-nest/52562/6
+        // https://www.elastic.co/guide/en/elasticsearch/client/net-api/1.x/scroll.html
+        // https://stackoverflow.com/questions/37780803/elasticsearch-search-query-to-retrieve-all-records-nest
         public IEnumerable<PersonViewModel> GetAll(double baseLatitude, double baseLongitude)
         {
-            int page = 0;
-            int pageSize = 100;
-            while (true)
+            GeoLocation baseGeolocation = GeoLocation.TryCreate(baseLatitude, baseLongitude);
+            var client = CreateClient();
+            List<string> indexedList = new List<string>();
+
+            var scanResults = client.Search<Person>(s => s
+                .From(0)
+                .Size(2000)
+                .Source(sf => sf
+                    .Includes(i => i
+                        .Fields(
+                            f => f.Id,
+                            f => f.FirstName,
+                            f => f.LastName
+                        )
+                    )
+                )
+                .Scroll("10m")
+                .Sort(ss => ss.GeoDistance(g => g
+                        .Field(f => f.Location)
+                        .Order(SortOrder.Ascending)
+                        .DistanceType(GeoDistanceType.Plane)
+                        .Points(baseGeolocation)))
+            );
+
+            var results = client.Scroll<Person>("10m", scanResults.ScrollId);
+            while (results.Documents.Any())
             {
-                var people = GetAll(page, pageSize, baseLatitude, baseLongitude);
-                if (people.Count() <= 0)
-                    break;
+                foreach (var person in results.Documents)
+                    yield return PersonViewModel.From(person);
 
-                foreach (var person in people)
-                    yield return person;
-
-                page++;
+                results = client.Scroll<Person>("10m", results.ScrollId);
             }
         }
 
