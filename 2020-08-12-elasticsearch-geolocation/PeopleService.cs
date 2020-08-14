@@ -1,6 +1,7 @@
 ﻿using Nest;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ElasticSearchGeolocationExample
 {
@@ -24,6 +25,23 @@ namespace ElasticSearchGeolocationExample
                 });
             }
             var indexResponse = client.IndexMany(people);
+        }
+
+        public IEnumerable<PersonViewModel> GetAll(double baseLatitude, double baseLongitude)
+        {
+            int page = 0;
+            int pageSize = 100;
+            while (true)
+            {
+                var people = GetAll(page, pageSize, baseLatitude, baseLongitude);
+                if (people.Count() <= 0)
+                    break;
+
+                foreach (var person in people)
+                    yield return person;
+
+                page++;
+            }
         }
 
         public IEnumerable<PersonViewModel> GetAll(int page, int numberPerPage, double baseLatitude, double baseLongitude)

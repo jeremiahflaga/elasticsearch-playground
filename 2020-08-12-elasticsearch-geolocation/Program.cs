@@ -16,22 +16,9 @@ namespace ElasticSearchGeolocationExample
             var peopleService = new PeopleService();
             peopleService.IndexSampleData(baseLatitude, baseLatitude);
 
-            int page = 0;
-            int pageSize = 50;
-            while (true)
-            {
-                var people = peopleService.GetAll(page, pageSize, baseLatitude, baseLongitude);
-                if (people.Count() <= 0)
-                    break;
-
-                foreach (var person in people) 
-                    Console.WriteLine($"{person.Id}: {person.FirstName} {person.LastName}");
-
-                page++;
-
-                Console.WriteLine("\nPRESS ENTER TO DISPLAY NEXT PAGE\n");
-                Console.ReadLine();
-            }
+            var people = peopleService.GetAll(baseLatitude, baseLongitude);
+            foreach (var person in people)
+                Console.WriteLine($"{person.Id}: {person.FirstName} {person.LastName}");
         }
     }
 }
